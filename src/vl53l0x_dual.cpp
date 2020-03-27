@@ -1,5 +1,4 @@
 #include "Arduino.h"
-#include "Adafruit_VL53L0X.h"
 #include <PID_v1.h>
 
 // #define DEBUG
@@ -44,9 +43,13 @@ void printRam() {
 #define PIN_MOTOR_Y_DIRECTION D5
 #endif
 
-uint16_t x = 100; //measure1.RangeMilliMeter;
-uint16_t y = 100; //measure2.RangeMilliMeter;
+uint16_t x = 200; //measure1.RangeMilliMeter;
+uint16_t y = 200; //measure2.RangeMilliMeter;
+// uint16_t x = 310; //measure1.RangeMilliMeter;
+// uint16_t y = 72; //measure2.RangeMilliMeter;
 
+#ifndef MOCK
+#include "Adafruit_VL53L0X.h"
 // objects for the vl53l0x
 Adafruit_VL53L0X lox1 = Adafruit_VL53L0X();
 Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
@@ -108,36 +111,6 @@ void setID()
 #endif
 }
 
-#ifdef MOCK
-uint16_t X_START = 80; // RIGHT
-uint16_t X_END = 120;  // LEFT
-uint16_t Y_START = 90; // TOP
-uint16_t Y_END = 110;  // BOTTOM
-#else
-uint16_t X_START = 200; // RIGHT
-uint16_t X_END = 500;   // LEFT
-uint16_t Y_START = 100;  // TOP
-uint16_t Y_END = 270;   // BOTTOM
-#endif
-
-double Setpoint, YSetpoint, Input, Output;
-PID xPID(&Input, &Output, &Setpoint, 2, 5, 1, DIRECT);
-PID yPID(&Input, &Output, &YSetpoint, 2, 5, 1, DIRECT);
-int WindowSize = 2000;
-unsigned long windowStartTime;
-
-void setup_PID()
-{
-  windowStartTime = millis();
-  Setpoint = 100;
-
-  // 告诉 PID 在从 0 到窗口大小的范围内取值
-  xPID.SetOutputLimits(0, WindowSize);
-  yPID.SetOutputLimits(0, WindowSize);
-  xPID.SetMode(AUTOMATIC);
-  yPID.SetMode(AUTOMATIC);
-}
-
 void read_dual_sensors()
 {
 
@@ -170,6 +143,42 @@ void read_dual_sensors()
 
   Serial.println();
 }
+#endif
+
+#ifdef MOCK
+uint16_t X_START = 80; // RIGHT
+uint16_t X_END = 320;  // LEFT
+uint16_t Y_START = 190; // TOP
+uint16_t Y_END = 210;  // BOTTOM
+// uint16_t X_START = 200; // RIGHT
+// uint16_t X_END = 500;   // LEFT
+// uint16_t Y_START = 50;  // TOP
+// uint16_t Y_END = 270;   // BOTTOM
+#else
+uint16_t X_START = 200; // RIGHT
+uint16_t X_END = 500;   // LEFT
+uint16_t Y_START = 100;  // TOP
+uint16_t Y_END = 270;   // BOTTOM
+#endif
+
+double Setpoint, YSetpoint, Input, Output;
+PID xPID = PID(&Input, &Output, &Setpoint, 2, 1, 1, DIRECT);
+PID yPID = PID(&Input, &Output, &YSetpoint, 2, 1, 1, DIRECT);
+int WindowSize = 2000;
+unsigned long windowStartTime;
+
+void setup_PID()
+{
+  windowStartTime = millis();
+  Setpoint = 100;
+
+  // 告诉 PID 在从 0 到窗口大小的范围内取值
+  xPID.SetOutputLimits(0, WindowSize);
+  yPID.SetOutputLimits(0, WindowSize);
+  xPID.SetMode(AUTOMATIC);
+  yPID.SetMode(AUTOMATIC);
+}
+
 
 void setup()
 {
@@ -249,10 +258,17 @@ void resetToOrigin(uint16_t x, uint16_t y)
 void moveX(uint16_t dir)
 {
   xPID.Compute();
-  if (millis() - windowStartTime > WindowSize)
+  while (millis() - windowStartTime > WindowSize)
   {
     windowStartTime += WindowSize;
   }
+  Serial.print(Input);
+  Serial.print(" ");
+  Serial.print(Setpoint);
+  Serial.print(" ");
+  Serial.print(Output);
+  Serial.print(" ");
+  Serial.println(millis() - windowStartTime);
   if (Output < millis() - windowStartTime)
   {
 #ifdef DEBUG
@@ -288,7 +304,7 @@ void moveX(uint16_t dir)
 void moveY(uint16_t dir)
 {
   yPID.Compute();
-  if (millis() - windowStartTime > WindowSize)
+  while (millis() - windowStartTime > WindowSize)
   {
     windowStartTime += WindowSize;
   }
@@ -330,8 +346,8 @@ void toLeft()
 #ifdef DEBUG
   Serial.println(F("toLeft"));
 #endif
-  Setpoint = Input;
-  Input = X_START;
+  Setpoint = X_END - X_START;
+  Input = X_END - Input;
   moveX(DIRECTION_LEFT);
 }
 
@@ -415,8 +431,8 @@ void loop()
 
 #ifndef MOCK
   read_dual_sensors();
-  uint16_t x = measure1.RangeMilliMeter;
-  uint16_t y = measure2.RangeMilliMeter;
+  x = measure1.RangeMilliMeter;
+  y = measure2.RangeMilliMeter;
 #else
   Serial.print(x);
   Serial.print(',');
@@ -433,6 +449,9 @@ void loop()
   {
     byte _direction = direction;
     boundaryDetection(x, y);
+    if (bitRead(_direction, 1) != bitRead(direction, 1)) {
+      xPID = PID(&Input, &Output, &Setpoint, 2, 1, 1, DIRECT);
+    }
     Input = x;
     if (bitRead(direction, 0))
     {
@@ -447,6 +466,7 @@ void loop()
     // 当 X 发生换向，Y 需要更新 Y 目标
     if (bitRead(_direction, 0) != bitRead(direction, 0))
     {
+      yPID = PID(&Input, &Output, &YSetpoint, 2, 1, 1, DIRECT);
 #ifdef DEBUG
       Serial.print(F("Y need move"));
 #endif
