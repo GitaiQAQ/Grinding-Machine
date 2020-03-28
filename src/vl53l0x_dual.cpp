@@ -1,8 +1,8 @@
 #include "Arduino.h"
 #include <PID_v1.h>
 
-// #define DEBUG
-#define MOCK
+#define DEBUG
+// #define MOCK
 
 #ifdef DEBUG
 // https://vmaker.tw/archives/13258
@@ -43,10 +43,10 @@ void printRam() {
 #define PIN_MOTOR_Y_DIRECTION D5
 #endif
 
-uint16_t x = 200; //measure1.RangeMilliMeter;
-uint16_t y = 200; //measure2.RangeMilliMeter;
-// uint16_t x = 310; //measure1.RangeMilliMeter;
-// uint16_t y = 72; //measure2.RangeMilliMeter;
+// uint16_t x = 200; //measure1.RangeMilliMeter;
+// uint16_t y = 200; //measure2.RangeMilliMeter;
+uint16_t x = 310; //measure1.RangeMilliMeter;
+uint16_t y = 72; //measure2.RangeMilliMeter;
 
 #ifndef MOCK
 #include "Adafruit_VL53L0X.h"
@@ -146,14 +146,14 @@ void read_dual_sensors()
 #endif
 
 #ifdef MOCK
-uint16_t X_START = 80; // RIGHT
-uint16_t X_END = 320;  // LEFT
-uint16_t Y_START = 190; // TOP
-uint16_t Y_END = 210;  // BOTTOM
-// uint16_t X_START = 200; // RIGHT
-// uint16_t X_END = 500;   // LEFT
-// uint16_t Y_START = 50;  // TOP
-// uint16_t Y_END = 270;   // BOTTOM
+// uint16_t X_START = 180; // RIGHT
+// uint16_t X_END = 220;  // LEFT
+// uint16_t Y_START = 190; // TOP
+// uint16_t Y_END = 210;  // BOTTOM
+uint16_t X_START = 200; // RIGHT
+uint16_t X_END = 500;   // LEFT
+uint16_t Y_START = 50;  // TOP
+uint16_t Y_END = 270;   // BOTTOM
 #else
 uint16_t X_START = 200; // RIGHT
 uint16_t X_END = 500;   // LEFT
@@ -291,6 +291,7 @@ void moveX(uint16_t dir)
     Serial.println(F(" ENABLE"));
 #endif
     digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
+    delay(Output);
   }
   else
   {
@@ -347,7 +348,7 @@ void toLeft()
   Serial.println(F("toLeft"));
 #endif
   Setpoint = X_END - X_START;
-  Input = X_END - Input;
+  Input = Setpoint - (X_END - Input);
   moveX(DIRECTION_LEFT);
 }
 
@@ -357,6 +358,7 @@ void toRight()
   Serial.println(F("toRight"));
 #endif
   Setpoint = X_END;
+  Input = X_END - Input;
   moveX(DIRECTION_RIGHT);
 }
 
