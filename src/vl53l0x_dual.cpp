@@ -1,7 +1,6 @@
 #include "Arduino.h"
-#include <PID_v1.h>
 
-#define DEBUG
+// #define DEBUG
 // #define MOCK
 
 #ifdef DEBUG
@@ -23,6 +22,7 @@ void printRam() {
 #define LOX1_ADDRESS 0x30
 #define LOX2_ADDRESS 0x31
 
+
 #if defined(__AVR__)
 // set the pins to shutdown
 #define SHT_LOX2 A3
@@ -32,6 +32,11 @@ void printRam() {
 
 #define PIN_MOTOR_Y_ENABLE 6
 #define PIN_MOTOR_Y_DIRECTION 7
+
+#define PIN_LED_DIN 11
+#define PIN_LED_CS 12
+#define PIN_LED_CLK 13
+
 #elif defined(ESP8266)
 // set the pins to shutdown
 #define SHT_LOX2 D3
@@ -48,8 +53,89 @@ void printRam() {
 uint16_t x = 310; //measure1.RangeMilliMeter;
 uint16_t y = 72; //measure2.RangeMilliMeter;
 
+#include "LedControl.h"
+
+LedControl lc = LedControl(PIN_LED_DIN, PIN_LED_CLK, PIN_LED_CS, 1);
+
+void setup_led() {
+    lc.shutdown(0, false);
+    lc.setIntensity(0, 5);
+    lc.clearDisplay(0);
+    lc.printDigit(0, PI);
+}
+
+void updateXY() {
+    lc.printDigit(0, y);
+    lc.printDigit(0, x, 4);
+}
+
+#define STATUS_BOOTLOAD 1000
+#define STATUS_SETUP_VL53L0X_FIRST 1001
+#define STATUS_SETUP_VL53L0X_SECOND 1002
+#define STATUS_SETUP_OK 1003
+#define STATUS_SUCCESSFUL_TO_BOOT_FIRST_VL53L0X 1101
+#define STATUS_SUCCESSFUL_TO_BOOT_SECOND_VL53L0X 1102
+#define STATUS_RESET_TO_ORIGIN 1201
+
+#define STATUS_FIRST_VL53L0X_TIME_OUT 1301
+#define STATUS_FIRST_VL53L0X_OUT_OF_RANGE 1302
+#define STATUS_FIRST_VL53L0X_ERR_CODE_BASE 1400
+
+#define STATUS_FIRST_VL53L0X_ERROR_CALIBRATION_WARNING (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_CALIBRATION_WARNING)
+#define STATUS_FIRST_VL53L0X_ERROR_UNDEFINED (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_UNDEFINED)
+#define STATUS_FIRST_VL53L0X_ERROR_INVALID_PARAMS (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_INVALID_PARAMS)
+#define STATUS_FIRST_VL53L0X_ERROR_NOT_SUPPORTED (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_NOT_SUPPORTED)
+#define STATUS_FIRST_VL53L0X_ERROR_RANGE_ERROR (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_RANGE_ERROR)
+#define STATUS_FIRST_VL53L0X_ERROR_TIME_OUT (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_TIME_OUT)
+#define STATUS_FIRST_VL53L0X_ERROR_MODE_NOT_SUPPORTED (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_MODE_NOT_SUPPORTED)
+#define STATUS_FIRST_VL53L0X_ERROR_BUFFER_TOO_SMALL (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_BUFFER_TOO_SMALL)
+#define STATUS_FIRST_VL53L0X_ERROR_GPIO_NOT_EXISTING (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_GPIO_NOT_EXISTING)
+#define STATUS_FIRST_VL53L0X_ERROR_GPIO_FUNCTIONALITY_NOT_SUPPORTED (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_GPIO_FUNCTIONALITY_NOT_SUPPORTED)
+#define STATUS_FIRST_VL53L0X_ERROR_INTERRUPT_NOT_CLEARED (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_INTERRUPT_NOT_CLEARED)
+#define STATUS_FIRST_VL53L0X_ERROR_CONTROL_INTERFACE (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_CONTROL_INTERFACE)
+#define STATUS_FIRST_VL53L0X_ERROR_INVALID_COMMAND (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_INVALID_COMMAND)
+#define STATUS_FIRST_VL53L0X_ERROR_DIVISION_BY_ZERO (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_DIVISION_BY_ZERO)
+#define STATUS_FIRST_VL53L0X_ERROR_REF_SPAD_INIT (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_REF_SPAD_INIT)
+#define STATUS_FIRST_VL53L0X_ERROR_NOT_IMPLEMENTED (STATUS_FIRST_VL53L0X_ERR_CODE_BASE + VL53L0X_ERROR_NOT_IMPLEMENTED)
+
+#define STATUS_FIRST_VL53L0X_RANGESTATUS_RANGEVALID (STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + 0)
+// 范围内有效测距测量有效
+#define STATUS_FIRST_VL53L0X_RANGESTATUS_SIGMA (STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + 1)
+// 环境光，环境光太多噪声
+#define STATUS_FIRST_VL53L0X_RANGESTATUS_SIGNAL (STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + 2)
+// 限制或RIT（范围忽略阈值）
+#define STATUS_FIRST_VL53L0X_RANGESTATUS_MINRANGE (STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + 3)
+// 最小范围失败默认情况下未启用
+#define STATUS_FIRST_VL53L0X_RANGESTATUS_PHASE (STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + 4)
+// 噪声过高
+#define STATUS_FIRST_VL53L0X_RANGESTATUS_HW (STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + 5)
+// 硬件故障硬件故障
+
+#define STATUS_SECOND_VL53L0X_TIME_OUT 1401
+#define STATUS_SECOND_VL53L0X_OUT_OF_RANGE 1402
+#define STATUS_SECOND_VL53L0X_ERR_CODE_BASE 1500
+
+#define ERR_FAILED_TO_BOOT_FIRST_VL53L0X 2301
+#define ERR_FAILED_TO_BOOT_SECOND_VL53L0X 2302
+
+void printStatus(uint16_t id) {
+    lc.printDigit(0, id);
+    lc.printDigit(0, 5, 7);
+}
+
+void printError(uint16_t id) {
+    lc.printDigit(0, id);
+    lc.printBuffer(0, "E", 7);
+    while (1) {
+#if defined(ESP8266)
+      ESP.wdtFeed();
+#endif
+    }
+}
+
 #ifndef MOCK
 #include "Adafruit_VL53L0X.h"
+
 // objects for the vl53l0x
 Adafruit_VL53L0X lox1 = Adafruit_VL53L0X();
 Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
@@ -57,7 +143,6 @@ Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
 // this holds the measurement
 VL53L0X_RangingMeasurementData_t measure1;
 VL53L0X_RangingMeasurementData_t measure2;
-
 /*
     Reset all sensors by setting all of their XSHUT pins low for delay(10), then set all XSHUT high to bring out of reset
     Keep sensor #1 awake by keeping XSHUT pin high
@@ -78,16 +163,14 @@ void setID()
   // activating LOX1 and reseting LOX2
   digitalWrite(SHT_LOX2, LOW);
 
+  printStatus(STATUS_SETUP_VL53L0X_FIRST);
   // initing LOX1
-  if (!lox1.begin(VL53L0X_BEST_ACCURACY_MODE, LOX1_ADDRESS))
+  if (!lox1.begin(VL53L0X_GOOD_ACCURACY_MODE, LOX1_ADDRESS))
   {
     Serial.println(F("Failed to boot first VL53L0X"));
-    while (1) {
-#if defined(ESP8266)
-      ESP.wdtFeed();
-#endif
-    }
+    printError(ERR_FAILED_TO_BOOT_FIRST_VL53L0X);
   }
+  printStatus(STATUS_SUCCESSFUL_TO_BOOT_FIRST_VL53L0X);
 #ifdef DEBUG
   Serial.println(F("Successful to boot first VL53L0X"));
 #endif
@@ -96,16 +179,14 @@ void setID()
   digitalWrite(SHT_LOX2, HIGH);
   delay(100);
 
+  printStatus(STATUS_SETUP_VL53L0X_SECOND);
   //initing LOX2
   if (!lox2.begin(VL53L0X_BEST_ACCURACY_MODE, LOX2_ADDRESS))
   {
     Serial.println(F("Failed to boot second VL53L0X"));
-    while (1) {
-#if defined(ESP8266)
-      ESP.wdtFeed();
-#endif
-    }
+    printError(ERR_FAILED_TO_BOOT_SECOND_VL53L0X);
   }
+  printStatus(STATUS_SUCCESSFUL_TO_BOOT_SECOND_VL53L0X);
 #ifdef DEBUG
   Serial.println(F("Successful to boot second VL53L0X"));
 #endif
@@ -113,82 +194,85 @@ void setID()
 
 void read_dual_sensors()
 {
-
-  lox1.rangingTest(&measure1); // pass in 'true' to get debug data printout!
-  lox2.rangingTest(&measure2); // pass in 'true' to get debug data printout!
-
-  // print sensor one reading
-  Serial.print("1: ");
-  if (measure1.RangeStatus != 4)
-  { // if not out of range
-    Serial.print(measure1.RangeMilliMeter);
+  VL53L0X_Error err = lox1.rangingTest(&measure1); // pass in 'true' to get debug data printout!
+  if (err != VL53L0X_ERROR_NONE) {
+    // VL53L0X_define_Error_group
+    printStatus(STATUS_FIRST_VL53L0X_ERR_CODE_BASE + err);
+    delay(500);
   }
-  else
+  if (measure1.RangeStatus != 0)
   {
-    Serial.print(F("Out of range"));
+    // VL53L0X_get_range_status_string
+    printStatus(STATUS_FIRST_VL53L0X_ERR_CODE_BASE - 50 + measure1.RangeStatus);
+    delay(500);
   }
 
-  Serial.print(" ");
-
-  // print sensor two reading
-  Serial.print("2: ");
-  if (measure2.RangeStatus != 4)
+  err = lox2.rangingTest(&measure2); // pass in 'true' to get debug data printout!
+  if (err != VL53L0X_ERROR_NONE) {
+    // VL53L0X_define_Error_group
+    printStatus(STATUS_SECOND_VL53L0X_ERR_CODE_BASE + err);
+    delay(500);
+  }
+  if (measure2.RangeStatus != 0)
   {
-    Serial.print(measure2.RangeMilliMeter);
+    // VL53L0X_get_range_status_string
+    printStatus(STATUS_SECOND_VL53L0X_ERR_CODE_BASE - 50 + measure1.RangeStatus);
+    delay(500);
   }
-  else
-  {
-    Serial.print("Out of range");
-  }
-
-  Serial.println();
 }
 #endif
 
 #ifdef MOCK
-// uint16_t X_START = 180; // RIGHT
-// uint16_t X_END = 220;  // LEFT
-// uint16_t Y_START = 190; // TOP
-// uint16_t Y_END = 210;  // BOTTOM
-uint16_t X_START = 200; // RIGHT
-uint16_t X_END = 500;   // LEFT
-uint16_t Y_START = 50;  // TOP
-uint16_t Y_END = 270;   // BOTTOM
+uint16_t X_START = 180; // RIGHT
+uint16_t X_END = 220;  // LEFT
+uint16_t Y_START = 190; // TOP
+uint16_t Y_END = 210;  // BOTTOM
+// uint16_t X_START = 200; // RIGHT
+// uint16_t X_END = 500;   // LEFT
+// uint16_t Y_START = 50;  // TOP
+// uint16_t Y_END = 270;   // BOTTOM
+
+bool X_DIRECTION = false;
+bool Y_DIRECTION = false;
+
+void _digitalWrite(uint8_t pin, uint8_t val) {
+  switch (pin)
+  {
+  case PIN_MOTOR_X_ENABLE:
+    val || (X_DIRECTION ? x++: x--);
+    break;
+  case PIN_MOTOR_Y_ENABLE:
+    val || (Y_DIRECTION ? y++: y--);
+    break;
+  case PIN_MOTOR_X_DIRECTION:
+    X_DIRECTION = val;
+    break;
+  case PIN_MOTOR_Y_DIRECTION:
+    Y_DIRECTION = val;
+    break;
+  }
+  digitalWrite(pin, val);
+}
 #else
 uint16_t X_START = 200; // RIGHT
 uint16_t X_END = 500;   // LEFT
 uint16_t Y_START = 100;  // TOP
-uint16_t Y_END = 270;   // BOTTOM
+uint16_t Y_END = 200;   // BOTTOM
+
+void (*_digitalWrite)(uint8_t pin, uint8_t val) = digitalWrite;
 #endif
-
-double Setpoint, YSetpoint, Input, Output;
-PID xPID = PID(&Input, &Output, &Setpoint, 2, 1, 1, DIRECT);
-PID yPID = PID(&Input, &Output, &YSetpoint, 2, 1, 1, DIRECT);
-int WindowSize = 2000;
-unsigned long windowStartTime;
-
-void setup_PID()
-{
-  windowStartTime = millis();
-  Setpoint = 100;
-
-  // 告诉 PID 在从 0 到窗口大小的范围内取值
-  xPID.SetOutputLimits(0, WindowSize);
-  yPID.SetOutputLimits(0, WindowSize);
-  xPID.SetMode(AUTOMATIC);
-  yPID.SetMode(AUTOMATIC);
-}
-
 
 void setup()
 {
   Serial.begin(9600);
 
   // wait until serial port opens for native USB devices
+#ifdef DEBUG
   while (!Serial)
   {
     delay(10);
   }
+#endif
 
   pinMode(SHT_LOX2, OUTPUT);
 
@@ -199,11 +283,12 @@ void setup()
 
   Serial.println(F("Starting..."));
 
+  setup_led();
+
+  printStatus(STATUS_BOOTLOAD);
 #ifndef MOCK
   setID();
 #endif
-
-  setup_PID();
 
   pinMode(PIN_MOTOR_X_ENABLE, OUTPUT);
   pinMode(PIN_MOTOR_Y_ENABLE, OUTPUT);
@@ -211,8 +296,11 @@ void setup()
   pinMode(PIN_MOTOR_X_DIRECTION, OUTPUT);
   pinMode(PIN_MOTOR_Y_DIRECTION, OUTPUT);
 
-  digitalWrite(PIN_MOTOR_X_ENABLE, HIGH);
-  digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
+  _digitalWrite(PIN_MOTOR_X_ENABLE, HIGH);
+  _digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
+  printStatus(STATUS_SETUP_OK);
+
+  pinMode(A6, INPUT);
 }
 
 // -1
@@ -255,146 +343,6 @@ void resetToOrigin(uint16_t x, uint16_t y)
   direction = getNearOrigin(x, y);
 }
 
-void moveX(uint16_t dir)
-{
-  xPID.Compute();
-  while (millis() - windowStartTime > WindowSize)
-  {
-    windowStartTime += WindowSize;
-  }
-  Serial.print(Input);
-  Serial.print(" ");
-  Serial.print(Setpoint);
-  Serial.print(" ");
-  Serial.print(Output);
-  Serial.print(" ");
-  Serial.println(millis() - windowStartTime);
-  if (Output < millis() - windowStartTime)
-  {
-#ifdef DEBUG
-    Serial.print(F("DIRECTION:  "));
-    Serial.print(dir ? F("RIGHT") : F("LEFT"));
-#endif
-#ifdef MOCK
-    if (dir)
-    {
-      x--;
-    }
-    else
-    {
-      x++;
-    }
-#endif
-    digitalWrite(PIN_MOTOR_X_DIRECTION, dir);
-    delay(100);
-#ifdef DEBUG
-    Serial.println(F(" ENABLE"));
-#endif
-    digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
-    delay(Output);
-  }
-  else
-  {
-#ifdef DEBUG
-    Serial.println(F("DISABLE"));
-#endif
-    digitalWrite(PIN_MOTOR_X_ENABLE, HIGH);
-  }
-}
-
-void moveY(uint16_t dir)
-{
-  yPID.Compute();
-  while (millis() - windowStartTime > WindowSize)
-  {
-    windowStartTime += WindowSize;
-  }
-  if (Output < millis() - windowStartTime)
-  {
-#ifdef DEBUG
-    Serial.print(F("DIRECTION:  "));
-    Serial.print(dir ? F("TOP") : F("BOTTOM"));
-#endif
-#ifdef MOCK
-    if (dir)
-    {
-      y++;
-    }
-    else
-    {
-      y--;
-    }
-#endif
-    digitalWrite(PIN_MOTOR_Y_DIRECTION, dir);
-    delay(100);
-#ifdef DEBUG
-    Serial.println(F(" ENABLE"));
-#endif
-    digitalWrite(PIN_MOTOR_Y_ENABLE, LOW);
-  }
-  else
-  {
-  #ifdef DEBUG
-    Serial.println(F("DISABLE"));
-  #endif
-    digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
-  }
-}
-
-// to0
-void toLeft()
-{
-#ifdef DEBUG
-  Serial.println(F("toLeft"));
-#endif
-  Setpoint = X_END - X_START;
-  Input = Setpoint - (X_END - Input);
-  moveX(DIRECTION_LEFT);
-}
-
-void toRight()
-{
-#ifdef DEBUG
-  Serial.println(F("toRight"));
-#endif
-  Setpoint = X_END;
-  Input = X_END - Input;
-  moveX(DIRECTION_RIGHT);
-}
-
-bool y_moving = false;
-
-void toTop()
-{
-  if (YSetpoint >= Input)
-  {
-#ifdef DEBUG
-    Serial.println(F("toTop"));
-#endif
-    moveY(DIRECTION_TOP);
-  }
-  else
-  {
-    digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
-  }
-}
-
-// to0
-void toBottom()
-{
-  if (YSetpoint <= Input)
-  {
-#ifdef DEBUG
-    Serial.println(F("toBottom"));
-#endif
-    moveY(DIRECTION_BOTTOM);
-  }
-  else
-  {
-    digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
-  }
-}
-
 void boundaryDetection(uint16_t x, uint16_t y)
 {
 #ifdef DEBUG
@@ -426,6 +374,8 @@ void boundaryDetection(uint16_t x, uint16_t y)
 #endif
 }
 
+uint16_t YSetpoint = 0;
+
 void loop()
 {
   // digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
@@ -435,11 +385,13 @@ void loop()
   read_dual_sensors();
   x = measure1.RangeMilliMeter;
   y = measure2.RangeMilliMeter;
-#else
-  Serial.print(x);
-  Serial.print(',');
-  Serial.println(y);
 #endif
+Serial.print(direction);
+Serial.print(',');
+Serial.print(x);
+Serial.print(',');
+Serial.print(y);
+updateXY();
 #ifdef DEBUG
   Serial.print(F("X:"));
   Serial.print(x);
@@ -451,34 +403,23 @@ void loop()
   {
     byte _direction = direction;
     boundaryDetection(x, y);
-    if (bitRead(_direction, 1) != bitRead(direction, 1)) {
-      xPID = PID(&Input, &Output, &Setpoint, 2, 1, 1, DIRECT);
-    }
-    Input = x;
-    if (bitRead(direction, 0))
-    {
-      toLeft();
-    }
-    else
-    {
-      toRight();
-    }
 
-    Input = y;
+    _digitalWrite(PIN_MOTOR_X_DIRECTION, bitRead(direction, 0));
+    _digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
+
     // 当 X 发生换向，Y 需要更新 Y 目标
     if (bitRead(_direction, 0) != bitRead(direction, 0))
     {
-      yPID = PID(&Input, &Output, &YSetpoint, 2, 1, 1, DIRECT);
 #ifdef DEBUG
       Serial.print(F("Y need move"));
 #endif
       if (bitRead(direction, 1))
       {
-        YSetpoint = Input + 4;
+        YSetpoint = y + 4;
       }
       else
       {
-        YSetpoint = Input - 4;
+        YSetpoint = y - 4;
       }
 #ifdef DEBUG
       Serial.print(F("YSetpoint: "));
@@ -486,20 +427,32 @@ void loop()
 #endif
     }
 
-    if (bitRead(direction, 1))
-    {
-      toTop();
-    }
-    else
-    {
-      toBottom();
+    _digitalWrite(PIN_MOTOR_Y_DIRECTION, bitRead(direction, 1));
+    if (YSetpoint) {
+      bool enable = (bitRead(direction, 1) ? y > YSetpoint : y < YSetpoint);
+      _digitalWrite(PIN_MOTOR_Y_ENABLE, enable);
+      Serial.print(',');
+      Serial.print(YSetpoint);
+      Serial.print(',');
+      Serial.print(enable);
+      if (enable) {
+        YSetpoint = 0;
+      }
     }
   }
   else
   {
+  #ifdef DEBUG
     Serial.println(F("ResetToOrigin"));
+  #endif
+    printStatus(STATUS_RESET_TO_ORIGIN);
     resetToOrigin(x, y);
   }
 
-  delay(10);
+  Serial.println("");
+  if (digitalRead(A6)) {
+    delay(500);
+  } else {
+    delay(100);
+  }
 }

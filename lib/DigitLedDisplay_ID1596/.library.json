@@ -1,0 +1,49 @@
+{
+    "name": "DigitLedDisplay", 
+    "version": "1.1.0", 
+    "keywords": [
+        "display"
+    ], 
+    "description": "MAX7219/MAX7221 Digital Tube 7-Segment LED Display Library", 
+    "frameworks": [
+        "arduino"
+    ], 
+    "platforms": [
+        "atmelavr", 
+        "atmelsam", 
+        "espressif32", 
+        "espressif8266", 
+        "intel_arc32", 
+        "microchippic32", 
+        "nordicnrf51", 
+        "nordicnrf52", 
+        "ststm32", 
+        "teensy", 
+        "timsp430"
+    ], 
+    "authors": [
+        {
+            "email": "ozhantr@hotmail.com", 
+            "url": null, 
+            "maintainer": true, 
+            "name": "Ozhan Duran"
+        }
+    ], 
+    "repository": {
+        "type": "git", 
+        "url": "https://github.com/ozhantr/DigitLedDisplay"
+    }, 
+    "homepage": "https://github.com/ozhantr/DigitLedDisplay/", 
+    "export": {
+        "include": null, 
+        "exclude": [
+            "extras", 
+            "docs", 
+            "tests", 
+            "test", 
+            "*.doxyfile", 
+            "*.pdf"
+        ]
+    }, 
+    "id": 1596
+}
