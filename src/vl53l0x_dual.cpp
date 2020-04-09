@@ -1,4 +1,8 @@
 #include "Arduino.h"
+#include <EEPROM.h>
+
+bool status = true;
+int address = 0;
 
 // #define DEBUG
 // #define MOCK
@@ -262,6 +266,26 @@ uint16_t Y_END = 200;   // BOTTOM
 void (*_digitalWrite)(uint8_t pin, uint8_t val) = digitalWrite;
 #endif
 
+// -1
+// 10 11
+// 00 01
+// bitRead(direction, 0); => toX 0 => toLeft 1 => toRight
+// bitRead(direction, 1); => toY 0 => toBottom 1=> toTop
+// state
+//   bitWrite(direction, 0, !bitRead(direction, 0))
+//   bitWrite(direction, 1, !bitRead(direction, 1))
+int8_t direction = -1;
+
+#define DIRECTION_LEFT LOW
+#define DIRECTION_RIGHT HIGH
+#define DIRECTION_TOP HIGH
+#define DIRECTION_BOTTOM LOW
+
+void onPause()
+{
+    status = !status;
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -298,25 +322,14 @@ void setup()
 
   _digitalWrite(PIN_MOTOR_X_ENABLE, HIGH);
   _digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
+
+  direction = EEPROM.read(address);
+
   printStatus(STATUS_SETUP_OK);
 
-  pinMode(A6, INPUT);
+  pinMode(A2, INPUT);
+  attachInterrupt(digitalPinToInterrupt(A2), onPause, RISING);
 }
-
-// -1
-// 10 11
-// 00 01
-// bitRead(direction, 0); => toX 0 => toLeft 1 => toRight
-// bitRead(direction, 1); => toY 0 => toBottom 1=> toTop
-// state
-//   bitWrite(direction, 0, !bitRead(direction, 0))
-//   bitWrite(direction, 1, !bitRead(direction, 1))
-int8_t direction = -1;
-
-#define DIRECTION_LEFT LOW
-#define DIRECTION_RIGHT HIGH
-#define DIRECTION_TOP HIGH
-#define DIRECTION_BOTTOM LOW
 
 short getNearOrigin(uint16_t x, uint16_t y)
 {
@@ -378,8 +391,11 @@ uint16_t YSetpoint = 0;
 
 void loop()
 {
-  // digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
-  // digitalWrite(PIN_MOTOR_Y_ENABLE, LOW);
+  if (!status) {
+    _digitalWrite(PIN_MOTOR_X_ENABLE, HIGH);
+    _digitalWrite(PIN_MOTOR_Y_ENABLE, HIGH);
+    return;
+  }
 
 #ifndef MOCK
   read_dual_sensors();
@@ -404,8 +420,12 @@ updateXY();
     byte _direction = direction;
     boundaryDetection(x, y);
 
+    if (bitRead(direction, 0) != bitRead(_direction, 0)) {
+      EEPROM.write(address, direction);
+      _digitalWrite(PIN_MOTOR_X_ENABLE, HIGH);
+      delay(1000);
+    }
     _digitalWrite(PIN_MOTOR_X_DIRECTION, bitRead(direction, 0));
-    _digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
 
     // 当 X 发生换向，Y 需要更新 Y 目标
     if (bitRead(_direction, 0) != bitRead(direction, 0))
@@ -438,6 +458,8 @@ updateXY();
       if (enable) {
         YSetpoint = 0;
       }
+    } else {
+      _digitalWrite(PIN_MOTOR_X_ENABLE, LOW);
     }
   }
   else
@@ -450,9 +472,5 @@ updateXY();
   }
 
   Serial.println("");
-  if (digitalRead(A6)) {
-    delay(500);
-  } else {
-    delay(100);
-  }
+  delay(100);
 }
